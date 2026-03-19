@@ -19,10 +19,10 @@ jobs:
           dotnet-version: "10.0.x"
 
       - name: Restore
-        run: dotnet restore BluetoothBatteryMonitor.csproj
+        run: dotnet restore BluetoothBatteryMonitor/BluetoothBatteryMonitor.csproj
 
       - name: Build
-        run: dotnet build BluetoothBatteryMonitor.csproj -c Release --no-restore
+        run: dotnet build BluetoothBatteryMonitor/BluetoothBatteryMonitor.csproj -c Release --no-restore
 
       - name: Test
         run: >

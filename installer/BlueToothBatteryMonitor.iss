@@ -5,7 +5,7 @@
 #define MyAppVersion   "1.0.0"
 #define MyAppPublisher "Bluetooth Battery Monitor"
 #define MyAppExeName   "BluetoothBatteryMonitor.exe"
-#define PublishDir     "..\bin\publish"
+#define PublishDir     "..\BluetoothBatteryMonitor\bin\publish"
 
 [Setup]
 AppId={{B4E7F2A1-9C3D-4E5F-8A1B-2D6E9F3C7A50}
