@@ -23,6 +23,7 @@ public class AppBootstrap : IDisposable
     private TrayIconManager? _trayIconManager;
 
     private CancellationTokenSource? _pollCts;
+    private volatile CancellationTokenSource? _delayCts;
     private Task? _pollTask;
     private bool _disposed;
 
@@ -52,7 +53,9 @@ public class AppBootstrap : IDisposable
         AutoStartManager.Apply(_configManager.Config.AutoStart);
 
         _bluetoothService.DevicesUpdated += OnDevicesUpdated;
+        _bluetoothService.DeviceConnectionChanged += OnDeviceConnectionChanged;
 
+        _bluetoothService.StartWatching();
         StartPolling();
 
         Log.Info("Application initialised. Refresh interval: {Interval}s",
@@ -90,15 +93,36 @@ public class AppBootstrap : IDisposable
             int intervalMs = _configManager.Config.RefreshIntervalSeconds * 1000;
             try
             {
-                await Task.Delay(intervalMs, ct);
+                using var delayCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                _delayCts = delayCts;
+                await Task.Delay(intervalMs, delayCts.Token);
+            }
+            catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+            {
+                // Delay was interrupted by a device change — debounce before refreshing.
+                Log.Info("Device change detected; refreshing after debounce.");
+                try { await Task.Delay(2000, ct); }
+                catch (OperationCanceledException) { break; }
             }
             catch (OperationCanceledException)
             {
                 break;
             }
+            finally
+            {
+                _delayCts = null;
+            }
         }
 
         Log.Debug("Polling loop exited.");
+    }
+
+    private void OnDeviceConnectionChanged(object? sender, EventArgs e)
+    {
+        Log.Debug("Device connection change detected.");
+
+        try { _delayCts?.Cancel(); }
+        catch (ObjectDisposedException) { }
     }
 
     private void OnDevicesUpdated(object? sender, IReadOnlyList<BluetoothDeviceInfo> devices)
@@ -186,6 +210,7 @@ public class AppBootstrap : IDisposable
         _disposed = true;
 
         _bluetoothService.DevicesUpdated -= OnDevicesUpdated;
+        _bluetoothService.DeviceConnectionChanged -= OnDeviceConnectionChanged;
 
         if (_trayIconManager is not null)
         {

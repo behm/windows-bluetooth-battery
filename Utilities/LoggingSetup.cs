@@ -33,7 +33,13 @@ public static class LoggingSetup
             Encoding = System.Text.Encoding.UTF8
         };
 
+        var consoleTarget = new ConsoleTarget("logconsole")
+        {
+            Layout = "${longdate} [${level:uppercase=true}] ${logger:shortName=true} — ${message}${onexception:inner= | Exception: ${exception:format=tostring}}"
+        };
+
         config.AddRule(level, LogLevel.Fatal, fileTarget);
+        config.AddRule(level, LogLevel.Fatal, consoleTarget);
         LogManager.Configuration = config;
     }
 

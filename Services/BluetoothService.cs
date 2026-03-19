@@ -1,4 +1,6 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
+
 using BluetoothBatteryMonitor.Models;
 using NLog;
 using Windows.Devices.Enumeration;
@@ -39,6 +41,8 @@ public class BluetoothService : IDisposable
 
     private readonly ConcurrentDictionary<string, BluetoothDeviceInfo> _devices = new();
 
+    private DeviceWatcher? _watcher;
+    private bool _watcherEnumerationComplete;
     private bool _disposed;
 
     /// <summary>
@@ -48,12 +52,21 @@ public class BluetoothService : IDisposable
     public event EventHandler<IReadOnlyList<BluetoothDeviceInfo>>? DevicesUpdated;
 
     /// <summary>
+    /// Raised when the <see cref="DeviceWatcher"/> detects a Bluetooth device
+    /// connection or disconnection after the initial enumeration completes.
+    /// </summary>
+    public event EventHandler? DeviceConnectionChanged;
+
+    /// <summary>
     /// Enumerates connected Bluetooth devices, reads battery levels from the PnP
     /// device tree, and returns the updated device list.
     /// </summary>
     public async Task<IReadOnlyList<BluetoothDeviceInfo>> RefreshAsync(
         CancellationToken cancellationToken = default)
     {
+        var stopWatch = new Stopwatch();
+        stopWatch.Start();
+
         Log.Debug("Starting Bluetooth device refresh.");
 
         _devices.Clear();
@@ -61,7 +74,8 @@ public class BluetoothService : IDisposable
         await DiscoverConnectedDevicesAsync(cancellationToken);
 
         var snapshot = _devices.Values.ToList().AsReadOnly();
-        Log.Info("Refresh complete. {Count} device(s) with battery info.", snapshot.Count);
+        stopWatch.Stop();
+        Log.Info("Refresh complete. {Count} device(s) with battery info.  Took {Elapsed}ms", snapshot.Count, stopWatch.ElapsedMilliseconds);
         DevicesUpdated?.Invoke(this, snapshot);
         return snapshot;
     }
@@ -194,6 +208,84 @@ public class BluetoothService : IDisposable
     }
 
     // -------------------------------------------------------------------------
+    // Real-time device watcher
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// Starts a <see cref="DeviceWatcher"/> that monitors Bluetooth AEP devices
+    /// for connection/disconnection changes. Events that occur after the initial
+    /// enumeration raise <see cref="DeviceConnectionChanged"/>.
+    /// </summary>
+    public void StartWatching()
+    {
+        if (_watcher != null) return;
+
+        string selector = $"System.Devices.Aep.ProtocolId:=\"{BluetoothProtocolId}\"";
+        string[] requestedProperties = [AepIsConnected, AepContainerId, AepDeviceAddress];
+
+        _watcher = DeviceInformation.CreateWatcher(
+            selector, requestedProperties, DeviceInformationKind.AssociationEndpoint);
+
+        _watcher.Added += OnWatcherAdded;
+        _watcher.Updated += OnWatcherUpdated;
+        _watcher.Removed += OnWatcherRemoved;
+        _watcher.EnumerationCompleted += OnWatcherEnumerationCompleted;
+
+        _watcherEnumerationComplete = false;
+        _watcher.Start();
+        Log.Info("Bluetooth device watcher started.");
+    }
+
+    public void StopWatching()
+    {
+        if (_watcher == null) return;
+
+        _watcher.Added -= OnWatcherAdded;
+        _watcher.Updated -= OnWatcherUpdated;
+        _watcher.Removed -= OnWatcherRemoved;
+        _watcher.EnumerationCompleted -= OnWatcherEnumerationCompleted;
+
+        if (_watcher.Status is DeviceWatcherStatus.Started
+            or DeviceWatcherStatus.EnumerationCompleted)
+        {
+            _watcher.Stop();
+        }
+
+        _watcher = null;
+        Log.Info("Bluetooth device watcher stopped.");
+    }
+
+    private void OnWatcherEnumerationCompleted(DeviceWatcher sender, object args)
+    {
+        _watcherEnumerationComplete = true;
+        Log.Debug("DeviceWatcher: initial enumeration complete, now monitoring changes.");
+    }
+
+    private void OnWatcherAdded(DeviceWatcher sender, DeviceInformation args)
+    {
+        if (!_watcherEnumerationComplete) return;
+        Log.Debug("DeviceWatcher: device added — {Name}", args.Name);
+        DeviceConnectionChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void OnWatcherUpdated(DeviceWatcher sender, DeviceInformationUpdate args)
+    {
+        if (!_watcherEnumerationComplete) return;
+        if (args.Properties.ContainsKey(AepIsConnected))
+        {
+            Log.Debug("DeviceWatcher: connection state changed for {Id}", args.Id);
+            DeviceConnectionChanged?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    private void OnWatcherRemoved(DeviceWatcher sender, DeviceInformationUpdate args)
+    {
+        if (!_watcherEnumerationComplete) return;
+        Log.Debug("DeviceWatcher: device removed — {Id}", args.Id);
+        DeviceConnectionChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    // -------------------------------------------------------------------------
     // Shared helpers
     // -------------------------------------------------------------------------
 
@@ -214,6 +306,7 @@ public class BluetoothService : IDisposable
     {
         if (_disposed) return;
         _disposed = true;
+        StopWatching();
         _devices.Clear();
     }
 }
