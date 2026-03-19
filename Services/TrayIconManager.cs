@@ -1,5 +1,4 @@
 using System.Drawing;
-using System.IO;
 using System.Windows.Forms;
 using BluetoothBatteryMonitor.Models;
 using NLog;
@@ -17,6 +16,7 @@ public class TrayIconManager : IDisposable
     private readonly NotifyIcon _notifyIcon;
     private readonly ContextMenuStrip _contextMenu;
     private readonly int _lowBatteryThreshold;
+    private readonly int _reallyLowBatteryThreshold;
 
     private bool _disposed;
 
@@ -24,10 +24,11 @@ public class TrayIconManager : IDisposable
     public event EventHandler? RefreshRequested;
     public event EventHandler? ExitRequested;
 
-    public TrayIconManager(int lowBatteryThreshold = 20)
+    public TrayIconManager(int lowBatteryThreshold = 20, int reallyLowBatteryThreshold = 5)
     {
         _lowBatteryThreshold = lowBatteryThreshold;
-
+        _reallyLowBatteryThreshold = reallyLowBatteryThreshold;
+        
         _contextMenu = BuildContextMenu();
 
         _notifyIcon = new NotifyIcon
@@ -35,7 +36,7 @@ public class TrayIconManager : IDisposable
             Text = "Bluetooth Battery Monitor",
             Visible = true,
             ContextMenuStrip = _contextMenu,
-            Icon = LoadIcon()
+            Icon = CreateBatteryIcon(Color.LimeGreen)
         };
 
         _notifyIcon.MouseClick += OnTrayIconClick;
@@ -43,17 +44,26 @@ public class TrayIconManager : IDisposable
         Log.Debug("TrayIconManager initialized.");
     }
 
-    private Icon LoadIcon()
+    private static Icon CreateBatteryIcon(Color color)
     {
-        string iconPath = Path.Combine(AppContext.BaseDirectory, "Assets", "icon.ico");
-        if (File.Exists(iconPath))
-        {
-            return new Icon(iconPath);
-        }
+        const int size = 16;
+        using var bmp = new Bitmap(size, size);
+        using var g = Graphics.FromImage(bmp);
+        g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+        g.Clear(Color.Transparent);
 
-        // Fallback: use a built-in system icon
-        Log.Warn("icon.ico not found at {Path}. Using system fallback.", iconPath);
-        return SystemIcons.Application;
+        // Battery body
+        using var fill = new SolidBrush(color);
+        g.FillRectangle(fill, 1, 3, 12, 10);
+
+        // Battery outline
+        using var outline = new Pen(Color.White, 1);
+        g.DrawRectangle(outline, 1, 3, 12, 10);
+
+        // Battery terminal nub
+        g.FillRectangle(Brushes.White, 13, 5, 2, 6);
+
+        return Icon.FromHandle(bmp.GetHicon());
     }
 
     private ContextMenuStrip BuildContextMenu()
@@ -86,7 +96,7 @@ public class TrayIconManager : IDisposable
             _notifyIcon.ShowBalloonTip(
                 timeout: 4000,
                 tipTitle: "Bluetooth Battery Levels",
-                tipText: _notifyIcon.Text,
+                tipText: _notifyIcon.Text.Replace(" | ", "\n"),
                 tipIcon: ToolTipIcon.Info);
         }
     }
@@ -114,7 +124,11 @@ public class TrayIconManager : IDisposable
         SetTooltip(fullText);
 
         bool anyLow = devices.Any(d => d.BatteryPercent.HasValue && d.BatteryPercent.Value <= _lowBatteryThreshold);
-        SetIcon(anyLow ? IconState.LowBattery : IconState.Normal);
+        bool anyReallyLow = devices.Any(d => d.BatteryPercent.HasValue && d.BatteryPercent.Value <= _reallyLowBatteryThreshold);
+
+        SetIcon(anyLow 
+                    ? anyReallyLow ? IconState.ReallyLowBattery : IconState.LowBattery
+                    : IconState.Normal);
 
         Log.Debug("Tray tooltip updated: {Text}", fullText);
     }
@@ -141,13 +155,25 @@ public class TrayIconManager : IDisposable
             : text;
     }
 
-    private enum IconState { Normal, LowBattery }
+    private enum IconState { Normal, LowBattery, ReallyLowBattery }
+
+    private IconState _currentIconState = IconState.Normal;
 
     private void SetIcon(IconState state)
     {
-        // Future: swap in a red icon when low battery.  For now one icon is used.
-        // Icon swapping can be added when custom icon assets are available.
-        _ = state;
+        if (state == _currentIconState && _notifyIcon.Icon is not null)
+            return;
+
+        _currentIconState = state;
+
+        var oldIcon = _notifyIcon.Icon;
+        _notifyIcon.Icon = state switch
+        {
+            IconState.LowBattery => CreateBatteryIcon(Color.Gold),
+            IconState.ReallyLowBattery => CreateBatteryIcon(Color.Red),
+            _ => CreateBatteryIcon(Color.LimeGreen)
+        };
+        oldIcon?.Dispose();
     }
 
     public void Dispose()

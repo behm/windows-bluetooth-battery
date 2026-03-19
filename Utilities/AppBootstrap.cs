@@ -41,7 +41,10 @@ public class AppBootstrap : IDisposable
         LoggingSetup.Configure(_configManager.Config.LogLevel);
         Log.Info("BluetoothBatteryMonitor starting up.");
 
-        _trayIconManager = new TrayIconManager(_configManager.Config.LowBatteryWarningThreshold);
+        _trayIconManager = new TrayIconManager(
+            _configManager.Config.LowBatteryWarningThreshold,
+            _configManager.Config.ReallyLowBatteryWarningThreshold
+        );
         _trayIconManager.SettingsRequested += OnSettingsRequested;
         _trayIconManager.RefreshRequested += OnRefreshRequested;
         _trayIconManager.ExitRequested += OnExitRequested;

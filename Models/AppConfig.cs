@@ -14,6 +14,9 @@ public class AppConfig
     /// <summary>Minimum battery percentage before a low-battery warning tooltip is shown.</summary>
     public int LowBatteryWarningThreshold { get; set; } = 20;
 
+    /// <summary>Minimum battery percentage before a low-battery warning tooltip is shown.</summary>
+    public int ReallyLowBatteryWarningThreshold { get; set; } = 5;
+
     /// <summary>NLog minimum log level: Trace, Debug, Info, Warn, Error, Off.</summary>
     public string LogLevel { get; set; } = "Info";
 }
