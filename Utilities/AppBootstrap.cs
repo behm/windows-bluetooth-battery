@@ -59,7 +59,11 @@ public class AppBootstrap : IDisposable
     private void StartPolling()
     {
         _pollCts = new CancellationTokenSource();
-        _pollTask = RunPollingLoopAsync(_pollCts.Token);
+        // Run on a thread-pool thread so WinRT Bluetooth async operations are never
+        // constrained by the WPF dispatcher's SynchronizationContext.  Without this,
+        // WinRT COM continuations are marshalled back through the WPF dispatcher,
+        // which stalls the entire discovery chain.
+        _pollTask = Task.Run(() => RunPollingLoopAsync(_pollCts.Token));
     }
 
     private async Task RunPollingLoopAsync(CancellationToken ct)
@@ -96,8 +100,11 @@ public class AppBootstrap : IDisposable
 
     private void OnDevicesUpdated(object? sender, IReadOnlyList<BluetoothDeviceInfo> devices)
     {
-        // Marshal back to the WinForms / UI thread for tray icon updates
-        Application.Current?.Dispatcher.Invoke(() =>
+        // BeginInvoke (async/fire-and-forget) is used intentionally here.
+        // DevicesUpdated fires from a thread-pool thread (inside Task.Run), and
+        // Dispatcher.Invoke would block that thread until the dispatcher processes
+        // the work item, creating a deadlock risk under any dispatcher contention.
+        Application.Current?.Dispatcher.BeginInvoke(() =>
         {
             _trayIconManager?.UpdateDevices(devices);
             CheckLowBatteryAlerts(devices);
