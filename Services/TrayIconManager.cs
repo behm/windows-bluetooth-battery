@@ -96,7 +96,7 @@ public class TrayIconManager : IDisposable
             _notifyIcon.ShowBalloonTip(
                 timeout: 4000,
                 tipTitle: "Bluetooth Battery Levels",
-                tipText: _notifyIcon.Text.Replace(" | ", "\n"),
+                tipText: _notifyIcon.Text,
                 tipIcon: ToolTipIcon.Info);
         }
     }
@@ -120,7 +120,7 @@ public class TrayIconManager : IDisposable
             .ToList();
 
         // NotifyIcon.Text has a 127-character limit in older Windows versions; truncate safely.
-        string fullText = string.Join(" | ", lines);
+        string fullText = string.Join("\n", lines);
         SetTooltip(fullText);
 
         bool anyLow = devices.Any(d => d.BatteryPercent.HasValue && d.BatteryPercent.Value <= _lowBatteryThreshold);

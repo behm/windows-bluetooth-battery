@@ -41,7 +41,13 @@ public class BluetoothService : IDisposable
 
     private readonly ConcurrentDictionary<string, BluetoothDeviceInfo> _devices = new();
 
+    // Connected-device cache maintained by the DeviceWatcher.
+    // Key = AEP device ID, Value = (Name, AddressKey, ContainerId).
+    private readonly ConcurrentDictionary<string, (string Name, string AddressKey, Guid ContainerId)>
+        _connectedAepDevices = new();
+
     private DeviceWatcher? _watcher;
+    private readonly TaskCompletionSource _watcherReady = new();
     private bool _watcherEnumerationComplete;
     private bool _disposed;
 
@@ -71,7 +77,17 @@ public class BluetoothService : IDisposable
 
         _devices.Clear();
 
-        await DiscoverConnectedDevicesAsync(cancellationToken);
+        // Wait for the watcher's initial enumeration so _connectedAepDevices is
+        // populated, but respect the cancellation token.
+        using var reg = cancellationToken.Register(() => _watcherReady.TrySetCanceled());
+        try { await _watcherReady.Task; }
+        catch (OperationCanceledException) { return _devices.Values.ToList().AsReadOnly(); }
+
+        var connected = _connectedAepDevices.Values.ToList();
+        Log.Info("{Count} connected Bluetooth device(s) from watcher cache.", connected.Count);
+
+        await Task.WhenAll(connected.Select(d =>
+            QueryDeviceBatteryFromCacheAsync(d.Name, d.AddressKey, d.ContainerId, cancellationToken)));
 
         var snapshot = _devices.Values.ToList().AsReadOnly();
         stopWatch.Stop();
@@ -81,84 +97,31 @@ public class BluetoothService : IDisposable
     }
 
     // -------------------------------------------------------------------------
-    // Discovery: connected Bluetooth AEP devices
-    // -------------------------------------------------------------------------
-
-    private async Task DiscoverConnectedDevicesAsync(CancellationToken cancellationToken)
-    {
-        string selector = $"System.Devices.Aep.ProtocolId:=\"{BluetoothProtocolId}\"";
-        string[] requestedProperties = [AepIsConnected, AepContainerId, AepDeviceAddress];
-
-        DeviceInformationCollection allDevices;
-        try
-        {
-            allDevices = await DeviceInformation.FindAllAsync(
-                    selector, requestedProperties, DeviceInformationKind.AssociationEndpoint)
-                .AsTask(cancellationToken);
-
-            Log.Debug("Bluetooth AEP enumeration returned {Count} device(s).", allDevices.Count);
-        }
-        catch (OperationCanceledException) { return; }
-        catch (Exception ex)
-        {
-            Log.Error(ex, "Failed to enumerate Bluetooth AEP devices.");
-            return;
-        }
-
-        var connectedDevices = allDevices
-            .Where(d => d.Properties.TryGetValue(AepIsConnected, out var v) && v is true)
-            .ToList();
-
-        Log.Info("{Count} connected Bluetooth device(s) found.", connectedDevices.Count);
-
-        foreach (var dev in connectedDevices)
-        {
-            Log.Debug("Connected: {Name} ({Id})", dev.Name, dev.Id);
-        }
-
-        await Task.WhenAll(connectedDevices.Select(
-            d => QueryDeviceBatteryAsync(d, cancellationToken)));
-    }
-
-    // -------------------------------------------------------------------------
     // Battery lookup via PnP device tree
     // -------------------------------------------------------------------------
 
-    private async Task QueryDeviceBatteryAsync(
-        DeviceInformation device, CancellationToken cancellationToken)
+    private async Task QueryDeviceBatteryFromCacheAsync(
+        string name, string addressKey, Guid containerId, CancellationToken cancellationToken)
     {
         try
         {
-            string addressKey = device.Properties.TryGetValue(AepDeviceAddress, out var addrObj)
-                && addrObj is string addr
-                    ? addr
-                    : device.Id;
-
-            if (!device.Properties.TryGetValue(AepContainerId, out var containerObj)
-                || containerObj is not Guid containerId)
-            {
-                Log.Debug("Device '{Name}': no ContainerId available.", device.Name);
-                return;
-            }
-
             int? battery = await GetBatteryFromContainerAsync(containerId, cancellationToken);
 
             if (battery.HasValue)
             {
                 Log.Info("Device '{Name}': battery = {Level}% (DEVPKEY_Bluetooth_Battery_Percentage)",
-                    device.Name, battery.Value);
-                UpsertDevice(addressKey, device.Name, battery.Value);
+                    name, battery.Value);
+                UpsertDevice(addressKey, name, battery.Value);
             }
             else
             {
-                Log.Debug("Device '{Name}': no battery level found in PnP device tree.",
-                    device.Name);
+                Log.Debug("Device '{Name}': no battery level found in PnP device tree.", name);
             }
         }
         catch (OperationCanceledException) { }
         catch (Exception ex)
         {
-            Log.Error(ex, "Error querying device '{Name}' ({Id}).", device.Name, device.Id);
+            Log.Error(ex, "Error querying cached device '{Name}'.", name);
         }
     }
 
@@ -258,11 +221,14 @@ public class BluetoothService : IDisposable
     private void OnWatcherEnumerationCompleted(DeviceWatcher sender, object args)
     {
         _watcherEnumerationComplete = true;
-        Log.Debug("DeviceWatcher: initial enumeration complete, now monitoring changes.");
+        _watcherReady.TrySetResult();
+        Log.Debug("DeviceWatcher: initial enumeration complete ({Count} connected device(s) cached), now monitoring changes.",
+            _connectedAepDevices.Count);
     }
 
     private void OnWatcherAdded(DeviceWatcher sender, DeviceInformation args)
     {
+        TrackIfConnected(args);
         if (!_watcherEnumerationComplete) return;
         Log.Debug("DeviceWatcher: device added — {Name}", args.Name);
         DeviceConnectionChanged?.Invoke(this, EventArgs.Empty);
@@ -270,19 +236,78 @@ public class BluetoothService : IDisposable
 
     private void OnWatcherUpdated(DeviceWatcher sender, DeviceInformationUpdate args)
     {
-        if (!_watcherEnumerationComplete) return;
-        if (args.Properties.ContainsKey(AepIsConnected))
+        if (args.Properties.TryGetValue(AepIsConnected, out var val))
         {
-            Log.Debug("DeviceWatcher: connection state changed for {Id}", args.Id);
-            DeviceConnectionChanged?.Invoke(this, EventArgs.Empty);
+            if (val is true)
+            {
+                // Became connected — Updated only provides a delta, so fetch the
+                // full DeviceInformation to populate the cache.
+                Log.Debug("DeviceWatcher: device connected — {Id}", args.Id);
+                _ = FetchAndCacheDeviceAsync(args.Id);
+            }
+            else
+            {
+                _connectedAepDevices.TryRemove(args.Id, out _);
+                Log.Debug("DeviceWatcher: device disconnected — {Id}", args.Id);
+            }
+
+            if (_watcherEnumerationComplete)
+                DeviceConnectionChanged?.Invoke(this, EventArgs.Empty);
         }
     }
 
     private void OnWatcherRemoved(DeviceWatcher sender, DeviceInformationUpdate args)
     {
+        _connectedAepDevices.TryRemove(args.Id, out _);
         if (!_watcherEnumerationComplete) return;
         Log.Debug("DeviceWatcher: device removed — {Id}", args.Id);
         DeviceConnectionChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>
+    /// If the device is currently connected and has a container ID, cache it.
+    /// </summary>
+    private void TrackIfConnected(DeviceInformation device)
+    {
+        bool isConnected = device.Properties.TryGetValue(AepIsConnected, out var v) && v is true;
+        if (!isConnected)
+        {
+            _connectedAepDevices.TryRemove(device.Id, out _);
+            return;
+        }
+
+        if (!device.Properties.TryGetValue(AepContainerId, out var containerObj)
+            || containerObj is not Guid containerId)
+            return;
+
+        string addressKey = device.Properties.TryGetValue(AepDeviceAddress, out var addrObj)
+            && addrObj is string addr
+                ? addr
+                : device.Id;
+
+        _connectedAepDevices[device.Id] = (device.Name, addressKey, containerId);
+    }
+
+    /// <summary>
+    /// Fetches full device info by AEP ID and caches it. Called when the watcher
+    /// reports a device as newly connected via an Updated event (which only
+    /// carries a property delta).
+    /// </summary>
+    private async Task FetchAndCacheDeviceAsync(string deviceId)
+    {
+        try
+        {
+            string[] requestedProperties = [AepIsConnected, AepContainerId, AepDeviceAddress];
+            var device = await DeviceInformation.CreateFromIdAsync(
+                deviceId, requestedProperties, DeviceInformationKind.AssociationEndpoint);
+
+            TrackIfConnected(device);
+            Log.Debug("DeviceWatcher: cached newly connected device '{Name}'.", device.Name);
+        }
+        catch (Exception ex)
+        {
+            Log.Warn(ex, "DeviceWatcher: failed to fetch device info for {Id}.", deviceId);
+        }
     }
 
     // -------------------------------------------------------------------------
