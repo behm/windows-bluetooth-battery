@@ -36,7 +36,7 @@ public class TrayIconManager : IDisposable
             Text = "Bluetooth Battery Monitor",
             Visible = true,
             ContextMenuStrip = _contextMenu,
-            Icon = CreateBatteryIcon(Color.LimeGreen)
+            Icon = CreateBatteryIcon(Color.Gray)
         };
 
         _notifyIcon.MouseClick += OnTrayIconClick;
@@ -110,7 +110,7 @@ public class TrayIconManager : IDisposable
         if (devices.Count == 0)
         {
             SetTooltip("No Bluetooth audio devices found.");
-            SetIcon(IconState.Normal);
+            SetIcon(IconState.NoDevices);
             return;
         }
 
@@ -155,9 +155,9 @@ public class TrayIconManager : IDisposable
             : text;
     }
 
-    private enum IconState { Normal, LowBattery, ReallyLowBattery }
+    private enum IconState { Normal, LowBattery, ReallyLowBattery, NoDevices }
 
-    private IconState _currentIconState = IconState.Normal;
+    private IconState _currentIconState = IconState.NoDevices;
 
     private void SetIcon(IconState state)
     {
@@ -171,6 +171,7 @@ public class TrayIconManager : IDisposable
         {
             IconState.LowBattery => CreateBatteryIcon(Color.Gold),
             IconState.ReallyLowBattery => CreateBatteryIcon(Color.Red),
+            IconState.NoDevices => CreateBatteryIcon(Color.Gray),
             _ => CreateBatteryIcon(Color.LimeGreen)
         };
         oldIcon?.Dispose();
