@@ -16,9 +16,25 @@ public static class SingleInstanceGuard
     /// </summary>
     public static bool Acquire()
     {
-        _mutex = new Mutex(initiallyOwned: true,
-            name: "Global\\BluetoothBatteryMonitor_SingleInstance",
-            out bool createdNew);
+        bool createdNew = false;
+
+        try
+        {
+            _mutex = new Mutex(initiallyOwned: true,
+                name: "BluetoothBatteryMonitor_SingleInstance",
+                out createdNew);
+        }
+        catch (AbandonedMutexException)
+        {
+            // The mutex was abandoned; we now own it and can treat this as the first instance.
+            createdNew = true;
+        }
+        catch
+        {
+            // Any failure to create or acquire the mutex should not crash the app.
+            _mutex = null;
+            return false;
+        }
         return createdNew;
     }
 
