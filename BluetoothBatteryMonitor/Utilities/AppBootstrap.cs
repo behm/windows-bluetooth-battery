@@ -167,6 +167,12 @@ public class AppBootstrap : IDisposable
 
             // Re-apply auto-start and restart polling if the interval changed
             AutoStartManager.Apply(_configManager.Config.AutoStart);
+
+            // Update tray icon thresholds so icon colours reflect the new settings immediately
+            _trayIconManager?.UpdateThresholds(
+                _configManager.Config.LowBatteryWarningThreshold,
+                _configManager.Config.ReallyLowBatteryWarningThreshold);
+
             RestartPolling();
 
             Log.Info("Settings applied.");
