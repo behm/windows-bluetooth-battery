@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="BluetoothBatteryMonitor.IntegrationTests/BluetoothBatteryMonitor.IntegrationTests.csproj" />
+  <Project Path="BluetoothBatteryMonitor.Tests/BluetoothBatteryMonitor.Tests.csproj" />
+  <Project Path="BluetoothBatteryMonitor/BluetoothBatteryMonitor.csproj" />
+</Solution>
