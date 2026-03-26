@@ -187,9 +187,38 @@ public class AppBootstrap : IDisposable
 
     private void RestartPolling()
     {
-        _pollCts?.Cancel();
-        _pollCts?.Dispose();
-        StartPolling();
+        // _pollCts?.Cancel();
+        // _pollCts?.Dispose();
+        
+        // Capture current CTS and task to avoid races while restarting
+         var oldCts = _pollCts;
+         var oldPollTask = _pollTask;
+         
+         // Clear fields before starting a new loop
+         _pollCts = null;
+         _pollTask = null;
+         
+         // Request cancellation of the existing polling loop
+         oldCts?.Cancel();
+         
+         // Wait for the old polling task to finish before disposing the CTS
+         if (oldPollTask != null)
+         {
+             try
+             {
+                 oldPollTask.Wait(TimeSpan.FromSeconds(5));
+             }
+             catch
+             {
+                 // Ignore exceptions during restart, consistent with Shutdown()
+             }
+         }
+         
+         // Now it is safe to dispose the old CTS
+         oldCts?.Dispose();
+
+         // Start a fresh polling loop        
+         StartPolling();
     }
 
     /// <summary>Called from App.OnExit to clean up resources.</summary>
