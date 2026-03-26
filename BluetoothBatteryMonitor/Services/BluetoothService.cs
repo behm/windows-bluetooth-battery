@@ -86,8 +86,10 @@ public class BluetoothService : IDisposable
         var connected = _connectedAepDevices.Values.ToList();
         Log.Info("{Count} connected Bluetooth device(s) from watcher cache.", connected.Count);
 
+        // All entries in _connectedAepDevices have AepIsConnected = true (enforced by TrackIfConnected),
+        // so each device processed here is actively connected.
         await Task.WhenAll(connected.Select(d =>
-            QueryDeviceBatteryFromCacheAsync(d.Name, d.AddressKey, d.ContainerId, cancellationToken)));
+            QueryDeviceBatteryFromCacheAsync(d.Name, d.AddressKey, d.ContainerId, isConnected: true, cancellationToken)));
 
         var snapshot = _devices.Values.ToList().AsReadOnly();
         stopWatch.Stop();
@@ -101,7 +103,7 @@ public class BluetoothService : IDisposable
     // -------------------------------------------------------------------------
 
     private async Task QueryDeviceBatteryFromCacheAsync(
-        string name, string addressKey, Guid containerId, CancellationToken cancellationToken)
+        string name, string addressKey, Guid containerId, bool isConnected, CancellationToken cancellationToken)
     {
         try
         {
@@ -111,7 +113,7 @@ public class BluetoothService : IDisposable
             {
                 Log.Info("Device '{Name}': battery = {Level}% (DEVPKEY_Bluetooth_Battery_Percentage)",
                     name, battery.Value);
-                UpsertDevice(addressKey, name, battery.Value);
+                UpsertDevice(addressKey, name, battery.Value, isConnected);
             }
             else
             {
@@ -314,7 +316,7 @@ public class BluetoothService : IDisposable
     // Shared helpers
     // -------------------------------------------------------------------------
 
-    private void UpsertDevice(string addressKey, string name, int batteryPercent)
+    private void UpsertDevice(string addressKey, string name, int batteryPercent, bool isConnected)
     {
         var info = _devices.GetOrAdd(addressKey, _ => new BluetoothDeviceInfo
         {
@@ -324,7 +326,7 @@ public class BluetoothService : IDisposable
 
         info.BatteryPercent = batteryPercent;
         info.LastUpdated = DateTime.UtcNow;
-        info.IsConnected = true;
+        info.IsConnected = isConnected;
     }
 
     public void Dispose()
