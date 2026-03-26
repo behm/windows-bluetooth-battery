@@ -15,8 +15,8 @@ public class TrayIconManager : IDisposable
 
     private readonly NotifyIcon _notifyIcon;
     private readonly ContextMenuStrip _contextMenu;
-    private readonly int _lowBatteryThreshold;
-    private readonly int _reallyLowBatteryThreshold;
+    private int _lowBatteryThreshold;
+    private int _reallyLowBatteryThreshold;
 
     private bool _disposed;
 
@@ -99,6 +99,20 @@ public class TrayIconManager : IDisposable
                 tipText: _notifyIcon.Text,
                 tipIcon: ToolTipIcon.Info);
         }
+    }
+
+    /// <summary>
+    /// Updates the low-battery warning thresholds used when colouring the tray icon.
+    /// Call this after saving new settings so that icon colours reflect the updated values immediately.
+    /// Both this method and <see cref="UpdateDevices"/> must be called from the WPF dispatcher thread,
+    /// which serialises access to these fields.
+    /// </summary>
+    public void UpdateThresholds(int lowBatteryThreshold, int reallyLowBatteryThreshold)
+    {
+        _lowBatteryThreshold = lowBatteryThreshold;
+        _reallyLowBatteryThreshold = reallyLowBatteryThreshold;
+        Log.Debug("TrayIconManager thresholds updated: Low={Low}, ReallyLow={ReallyLow}",
+            lowBatteryThreshold, reallyLowBatteryThreshold);
     }
 
     /// <summary>
