@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 
 using BluetoothBatteryMonitor.Models;
+using BluetoothBatteryMonitor.Utilities;
 using NLog;
 using Windows.Devices.Enumeration;
 using Windows.Devices.Enumeration.Pnp;
@@ -321,7 +322,8 @@ public class BluetoothService : IDisposable
         var info = _devices.GetOrAdd(addressKey, _ => new BluetoothDeviceInfo
         {
             DeviceId = addressKey,
-            Name = name
+            Name = name,
+            DeviceType = DeviceTypeDetector.DetectDeviceType(name)
         });
 
         info.BatteryPercent = batteryPercent;
