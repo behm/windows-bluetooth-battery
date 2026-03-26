@@ -1,7 +1,7 @@
 namespace BluetoothBatteryMonitor.Models;
 
 /// <summary>
-/// Represents the type of Bluetooth audio device.
+/// Represents the type of Bluetooth device.
 /// </summary>
 public enum DeviceType
 {
@@ -22,7 +22,7 @@ public enum DeviceType
 }
 
 /// <summary>
-/// Represents a discovered Bluetooth audio device and its current battery level.
+/// Represents a discovered Bluetooth device and its current battery level.
 /// </summary>
 public class BluetoothDeviceInfo
 {

@@ -123,7 +123,7 @@ public class TrayIconManager : IDisposable
     {
         if (devices.Count == 0)
         {
-            SetTooltip("No Bluetooth audio devices found.");
+            SetTooltip("No Bluetooth devices found.");
             SetIcon(IconState.NoDevices);
             return;
         }
