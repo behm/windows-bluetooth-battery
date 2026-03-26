@@ -14,7 +14,7 @@
     <RootNamespace>BluetoothBatteryMonitor</RootNamespace>
     <AssemblyVersion>1.0.0.0</AssemblyVersion>
     <FileVersion>1.0.0.0</FileVersion>
-    <Description>Displays battery levels of connected Bluetooth audio devices in the Windows system tray.</Description>
+    <Description>Displays battery levels of connected Bluetooth devices in the Windows system tray.</Description>
   </PropertyGroup>
 
   <ItemGroup>
