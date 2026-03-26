@@ -10,8 +10,9 @@ using Windows.Devices.Enumeration.Pnp;
 namespace BluetoothBatteryMonitor.Services;
 
 /// <summary>
-/// Discovers connected Bluetooth devices and reads their battery levels using the
-/// same mechanism as the Windows "Bluetooth &amp; devices" settings page:
+/// Discovers connected Bluetooth devices (both Classic and Low Energy) and reads
+/// their battery levels using the same mechanism as the Windows "Bluetooth &amp; devices"
+/// settings page:
 ///
 ///   1. Enumerate Bluetooth Association Endpoint (AEP) devices and filter to those
 ///      that are currently connected (System.Devices.Aep.IsConnected).
@@ -28,8 +29,9 @@ public class BluetoothService : IDisposable
 {
     private static readonly ILogger Log = LogManager.GetCurrentClassLogger();
 
-    // Bluetooth protocol GUID for Association Endpoint enumeration.
-    private const string BluetoothProtocolId = "{e0cbf06c-cd8b-4647-bb8a-263b43f0f974}";
+    // Bluetooth Classic and LE protocol GUIDs for Association Endpoint enumeration.
+    private const string BluetoothClassicProtocolId = "{e0cbf06c-cd8b-4647-bb8a-263b43f0f974}";
+    private const string BluetoothLeProtocolId = "{bb7bb05e-5972-42b5-94fc-76eaa7084d49}";
 
     // DEVPKEY_Bluetooth_Battery_Percentage — the PnP device property that Windows
     // populates from HFP AT commands or driver-reported battery data.
@@ -179,14 +181,17 @@ public class BluetoothService : IDisposable
 
     /// <summary>
     /// Starts a <see cref="DeviceWatcher"/> that monitors Bluetooth AEP devices
-    /// for connection/disconnection changes. Events that occur after the initial
-    /// enumeration raise <see cref="DeviceConnectionChanged"/>.
+    /// (both Classic and Low Energy) for connection/disconnection changes. Events
+    /// that occur after the initial enumeration raise
+    /// <see cref="DeviceConnectionChanged"/>.
     /// </summary>
     public void StartWatching()
     {
         if (_watcher != null) return;
 
-        string selector = $"System.Devices.Aep.ProtocolId:=\"{BluetoothProtocolId}\"";
+        string selector =
+            $"System.Devices.Aep.ProtocolId:=\"{BluetoothClassicProtocolId}\"" +
+            $" OR System.Devices.Aep.ProtocolId:=\"{BluetoothLeProtocolId}\"";
         string[] requestedProperties = [AepIsConnected, AepContainerId, AepDeviceAddress];
 
         _watcher = DeviceInformation.CreateWatcher(
