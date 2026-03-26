@@ -107,7 +107,7 @@ public class BluetoothDeviceInfoTests
     }
 
     [Fact]
-    public void ToDisplayString_WithUnknownType_IncludesPhoneIcon()
+    public void ToDisplayString_WithUnknownType_ShowsNoIcon()
     {
         var device = new BluetoothDeviceInfo
         {
@@ -118,9 +118,7 @@ public class BluetoothDeviceInfoTests
 
         var result = device.ToDisplayString();
 
-        Assert.Contains("📱", result);
-        Assert.Contains("Unknown Device", result);
-        Assert.Contains("100%", result);
+        Assert.Equal("Unknown Device: 100%", result);
     }
 
     [Fact]

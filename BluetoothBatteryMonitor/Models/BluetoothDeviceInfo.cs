@@ -58,10 +58,11 @@ public class BluetoothDeviceInfo
             DeviceType.Headset => "🎮",
             DeviceType.Mouse => "🖱️",
             DeviceType.Keyboard => "⌨️",
-            _ => "📱"
+            _ => ""
         };
 
         string batteryText = BatteryPercent.HasValue ? $"{BatteryPercent}%" : "N/A";
-        return $"{icon} {Name}: {batteryText}";
+        string prefix = string.IsNullOrEmpty(icon) ? "" : $"{icon} ";
+        return $"{prefix}{Name}: {batteryText}";
     }
 }
