@@ -8,7 +8,7 @@
 #define PublishDir     "..\BluetoothBatteryMonitor\bin\publish"
 
 [Setup]
-AppId={{B4E7F2A1-9C3D-4E5F-8A1B-2D6E9F3C7A50}
+AppId={{B4E7F2A1-9C3D-4E5F-8A1B-2D6E9F3C7A50}}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
