@@ -25,7 +25,7 @@ jobs:
         run: dotnet build BluetoothBatteryMonitor/BluetoothBatteryMonitor.csproj -c Release --no-restore
 
       - name: Build Tests
-        run: dotnet build BluetoothBatteryMonitor.Tests/BluetoothBatteryMonitor.Tests.csproj -c Release --no-restore
+        run: dotnet build BluetoothBatteryMonitor.Tests/BluetoothBatteryMonitor.Tests.csproj -c Release
 
       - name: Test
         run: dotnet run --project BluetoothBatteryMonitor.Tests/BluetoothBatteryMonitor.Tests.csproj -c Release --no-build
