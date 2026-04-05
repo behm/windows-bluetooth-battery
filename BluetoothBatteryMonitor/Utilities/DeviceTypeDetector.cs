@@ -25,12 +25,24 @@ public static class DeviceTypeDetector
         { "sony wf", DeviceType.Earbuds },
         { "wf-", DeviceType.Earbuds }, // Sony WF series
 
+        // Speakers (check before headphones to prioritize specific patterns)
+        { "speaker", DeviceType.Speaker },
+        { "soundlink", DeviceType.Speaker },
+        { "jbl", DeviceType.Speaker },
+        { "flip", DeviceType.Speaker },
+        { "charge", DeviceType.Speaker },
+        { "megaboom", DeviceType.Speaker },
+        { "boom", DeviceType.Speaker },
+        { "echo", DeviceType.Speaker },
+        { "homepod", DeviceType.Speaker },
+        { "sonos", DeviceType.Speaker },
+
         // Headphones
         { "headphone", DeviceType.Headphones },
         { "beats", DeviceType.Headphones },
         { "sony wh", DeviceType.Headphones },
         { "wh-", DeviceType.Headphones }, // Sony WH series
-        { "bose", DeviceType.Headphones },
+        { "bose quietcomfort", DeviceType.Headphones },
         { "quietcomfort", DeviceType.Headphones },
         { "sennheiser", DeviceType.Headphones },
         { "audio-technica", DeviceType.Headphones },
@@ -42,18 +54,6 @@ public static class DeviceTypeDetector
         { "h4", DeviceType.Headphones },
         { "studio", DeviceType.Headphones },
         { "solo", DeviceType.Headphones },
-
-        // Speakers
-        { "speaker", DeviceType.Speaker },
-        { "jbl", DeviceType.Speaker },
-        { "flip", DeviceType.Speaker },
-        { "charge", DeviceType.Speaker },
-        { "megaboom", DeviceType.Speaker },
-        { "boom", DeviceType.Speaker },
-        { "soundlink", DeviceType.Speaker },
-        { "echo", DeviceType.Speaker },
-        { "homepod", DeviceType.Speaker },
-        { "sonos", DeviceType.Speaker },
 
         // Headsets
         { "headset", DeviceType.Headset },
