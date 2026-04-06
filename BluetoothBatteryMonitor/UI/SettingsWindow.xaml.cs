@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using BluetoothBatteryMonitor.Models;
@@ -91,5 +93,34 @@ public partial class SettingsWindow : Window
     {
         DialogResult = false;
         Close();
+    }
+
+    private void ViewLogs_Click(object sender, RoutedEventArgs e)
+    {
+        string logDirectory = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "BluetoothBatteryMonitor", "logs");
+
+        // Ensure the directory exists before trying to open it
+        if (!Directory.Exists(logDirectory))
+        {
+            Directory.CreateDirectory(logDirectory);
+        }
+
+        try
+        {
+            ProcessStartInfo psi = new()
+            {
+                FileName = "explorer.exe",
+                Arguments = logDirectory,
+                UseShellExecute = true
+            };
+            Process.Start(psi);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Failed to open logs directory: {ex.Message}",
+                "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
     }
 }
