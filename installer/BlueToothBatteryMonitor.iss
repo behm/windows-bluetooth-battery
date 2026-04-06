@@ -5,7 +5,7 @@
 #define MyAppVersion   "1.0.0"
 #define MyAppPublisher "Bluetooth Battery Monitor"
 #define MyAppExeName   "BluetoothBatteryMonitor.exe"
-#define PublishDir     "..\BluetoothBatteryMonitor\bin\publish"
+#define PublishDir     "..\bin\publish"
 
 [Setup]
 AppId={{B4E7F2A1-9C3D-4E5F-8A1B-2D6E9F3C7A50}}
@@ -22,7 +22,7 @@ SolidCompression=yes
 WizardStyle=modern
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
-SetupIconFile=..\Assets\icon.ico
+SetupIconFile=..\BluetoothBatteryMonitor\Assets\icon.ico
 UninstallDisplayIcon={app}\{#MyAppExeName}
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
