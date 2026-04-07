@@ -2,7 +2,9 @@
 ; Requires Inno Setup 6+ — https://jrsoftware.org/isinfo.php
 
 #define MyAppName      "Bluetooth Battery Monitor"
-#define MyAppVersion   "1.0.0"
+#ifndef MyAppVersion
+  #define MyAppVersion "1.0.0"
+#endif
 #define MyAppPublisher "Bluetooth Battery Monitor"
 #define MyAppExeName   "BluetoothBatteryMonitor.exe"
 #define PublishDir     "..\bin\publish"
