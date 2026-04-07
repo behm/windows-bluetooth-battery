@@ -8,6 +8,7 @@ using BluetoothBatteryMonitor.Services;
 // Disambiguate from System.Windows.Forms.ComboBox
 using ComboBox = System.Windows.Controls.ComboBox;
 using ComboBoxItem = System.Windows.Controls.ComboBoxItem;
+using MessageBox = System.Windows.MessageBox;
 
 namespace BluetoothBatteryMonitor.UI;
 
