@@ -87,6 +87,9 @@
             </ComboBox>
             <TextBlock Style="{StaticResource DescriptionLabel}"
                        Text="Verbosity of the log file. Changes apply on next launch."/>
+            <TextBlock Style="{StaticResource DescriptionLabel}" Margin="0,4,0,0">
+                <Hyperlink Click="ViewLogs_Click">View Logs</Hyperlink>
+            </TextBlock>
 
             <!-- Auto-Start -->
             <CheckBox x:Name="AutoStartCheckBox"
