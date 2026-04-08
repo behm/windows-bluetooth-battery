@@ -8,6 +8,8 @@ namespace BluetoothBatteryMonitor.Utilities;
 /// <summary>
 /// Configures NLog programmatically for file-based logging.
 /// Log files are written to %LOCALAPPDATA%\BluetoothBatteryMonitor\logs\.
+/// Files are named with the current date (app-yyyy-MM-dd.log) and archived daily.
+/// Logs are retained for 14 days.
 /// </summary>
 public static class LoggingSetup
 {
@@ -23,11 +25,13 @@ public static class LoggingSetup
 
         var fileTarget = new FileTarget("logfile")
         {
-            FileName = Path.Combine(LogDirectory, "app.log"),
+            FileName = Path.Combine(LogDirectory, "app-${shortdate}.log"),
             Layout = "${longdate} [${level:uppercase=true}] ${logger:shortName=true} — ${message}${onexception:inner= | Exception: ${exception:format=tostring}}",
-            ArchiveAboveSize = 5 * 1024 * 1024, // 5 MB
-            MaxArchiveFiles = 3,
-            ArchiveNumbering = ArchiveNumberingMode.Rolling,
+            ArchiveEvery = FileArchivePeriod.Day,
+            ArchiveFileName = Path.Combine(LogDirectory, "app-{#}.log"),
+            ArchiveNumbering = ArchiveNumberingMode.Date,
+            ArchiveDateFormat = "yyyy-MM-dd",
+            MaxArchiveDays = 14,
             ConcurrentWrites = false,
             KeepFileOpen = true,
             Encoding = System.Text.Encoding.UTF8
